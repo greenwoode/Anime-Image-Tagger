@@ -21,6 +21,7 @@ Tools :
  - CV2 (image handling/processing)
  - Tensorflow
   -Keras
+  
 Methods :
 
 - Keras:
