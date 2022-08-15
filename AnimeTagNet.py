@@ -9,7 +9,9 @@ newMetaDir = ".\\validMeta"
 imagesDir = ".\\images"
 n = 337038
 
-_PREPROCESS_ = False
+_BLACKLIST_ = ['@', '!', '|', '\'', '.', '(', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '>', '<', '+', ':', 'breast', 'lowres', 'highres', 'boob', 'translate', 'request', '_no_', '_ni_', 'elemental_hero', 'bra', '_costume', '~', '`', 'harem', 'gangbang', 'ass', 'penis', 'panties', 'cum', 'sex', 'orgasm', 'squirting', 'micro', 'futanari', 'ray', 'drug', 'guro', 'hentai', 'revealing', 'thong', 'cure', 'legs_apart', 'testicles', '/']
+
+_PREPROCESS_ = True
 
 if _PREPROCESS_:
 
@@ -57,8 +59,9 @@ if _PREPROCESS_:
         print("found ", foundTotal, " files in ", foundTotal + missedTotal, "lookups")
         n = foundTotal
 
-    _GENERATE_TAGS_ = False
+    _GENERATE_TAGS_ = True
     if _GENERATE_TAGS_:
+
         Lines = []
         processedDataFiles = []
         Tags = []
@@ -70,28 +73,33 @@ if _PREPROCESS_:
 
         count = 0
         for JSON in processedDataFiles:
-            count = 0
+            countTotal = 0
             File = open(JSON, 'r', encoding="utf-8")
 
             Lines = File.readlines()
 
             for line in Lines:
-
+                count = 0
                 metadata = json.loads(line)
                 tags = metadata["tags"]
-
+                
                 for tag in tags:
-                    if tag['name'] not in Tags:
+                    clean = True
+                    for black in _BLACKLIST_:
+                        if black in tag['name']:
+                            clean = False
+                    if tag['name'] not in Tags and clean:
                         Tags.append(tag['name'])
                         count += 1
                         #print("added tag ", tag['name'])
-
+                countTotal += count
+                    
             File.close()
-            print(JSON, "finished processing, added", count, "tags")
+            print(JSON, "finished processing, added", countTotal, "tags")
 
-        print("Found", len(Tags), "unique tags, saving to allTags.txt...")
+        print("Found", len(Tags), "unique tags, saving to allTagsShort.txt...")
 
-        with open(".\\allTags.txt", 'w', encoding="utf-8") as fp:
+        with open(".\\allTagsShort.txt", 'w', encoding="utf-8") as fp:
             for item in Tags:
                 # write each item on a new line
                 fp.write("%s\n" % item)
@@ -106,7 +114,7 @@ if _PREPROCESS_:
         Lines = []
         processedDataFiles=[]
 
-        tagSave = open(".\\allTags.txt", 'r', encoding="utf-8")
+        tagSave = open(".\\allTagsShort.txt", 'r', encoding="utf-8")
         Lines = tagSave.readlines()
         tagSave.close()
 
@@ -217,7 +225,69 @@ if _PREPROCESS_:
 
         print("Saved.")
 
-    _SPLIT_ = True
+    _FIND_COMMON_ = True
+
+    if _FIND_COMMON_:
+        from progress.bar import Bar
+        import pandas as pd
+
+        Tags = []
+        Lines = []
+        processedDataFiles=[]
+
+        tagSave = open(".\\allTagsShort.txt", 'r', encoding="utf-8")
+        Lines = tagSave.readlines()
+        tagSave.close()
+
+        for line in Lines:
+            Tags.append(line.strip())
+
+        print("Starting allocation...")
+        newTags = np.asarray(Tags)
+        tagCount = pd.DataFrame(np.zeros((1, len(Tags))), columns=newTags)
+        print("Allocated array of shape", tagCount.shape)
+        count = 1
+        for filePath in os.listdir(newMetaDir):
+                processedDataFiles.append(os.path.join(newMetaDir, filePath))
+
+
+        for JSON in processedDataFiles:
+            File = open(JSON, 'r', encoding="utf-8")
+            contents = File.read()
+            File.close()
+            message = str(count) + '/17 '
+            bar = Bar(message, max=len(Tags), suffix='%(percent).1f%% - %(eta)ds')
+
+            for tag in Tags:
+                tagCount[tag][0] += contents.count(tag)
+                bar.next()
+            bar.finish()
+
+            print("finished", JSON)
+            count += 1
+        tagCountSorted = tagCount.sort_values(by=0, axis=1)
+        print("finished processing common tags, saving...")
+        with open(".\\RankedTags.txt", 'w', encoding="utf-8") as fp:
+            for tag in tagCountSorted.columns:
+                # write each item on a new line
+                fp.write("%s\n" % tag)
+
+        tagCountSorted[:, :10000].to_pickle('RankedTags_10k.pd')
+
+
+        ######################## BREAKS, NOT ENOUGH RAM ########################
+        #print("calculating independent tags...")
+        #_, inds = sympy.Matrix(df).rref()
+        #newTags = newTags[inds]
+        #print("found", newTags.size(), "indepenent tags, saving...")
+        #goodTagSave = open(".\\independentTags.txt", 'w', encoding="utf-8")
+        #goodTagSave.writelines(Tags.tolist())
+        #goodTagSave.close()
+        ########################################################################
+
+        print("Done.")
+
+    _SPLIT_ = False
 
     if _SPLIT_:
         print("loading...")
@@ -250,7 +320,7 @@ if _PREPROCESS_:
         np.save('./split/y_val.npy', y_val)
         print('train/val split complete')
 
-_TRAIN_ = True
+_TRAIN_ = False
 
 if _TRAIN_:
     
@@ -258,7 +328,7 @@ if _TRAIN_:
     import tensorflow as tf
     from tensorflow import keras
     from tensorflow.keras import layers
-    from skimage.io import imread
+    import cv2
 
     class My_Custom_Generator(keras.utils.Sequence) :
   
@@ -277,7 +347,7 @@ if _TRAIN_:
             batch_y = self.labels[idx * self.batch_size : (idx+1) * self.batch_size]
     
             return np.array([
-                    imread(str(file_name))
+                    cv2.imread(str(file_name))
                         for file_name in batch_x])/255.0, np.array(batch_y)
 
     
@@ -300,8 +370,9 @@ if _TRAIN_:
 
         x = layers.Flatten()(x)
         x = layers.Dropout(0.15)(x)
-        x = layers.Dense(64, activation='relu')(x)
-        x = layers.Dense(32, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
 
         outputs = layers.Dense(outSize, activation="softmax")(x)
 
@@ -309,9 +380,13 @@ if _TRAIN_:
 
     print("loading data...")
     X_train = np.load('./split/X_train.npy')
+    print('loaded [./split/X_train.npy]...')
     X_val = np.load('./split/X_val.npy')
+    print('loaded [./split/X_val.npy]...')
     y_train = np.load('./split/y_train.npy')
+    print('loaded [./split/y_train.npy]...')
     y_val = np.load('./split/y_val.npy')
+    print('loaded [./split/y_val.npy]...')
 
     #print(X_train.shape)
     #print(X_train.shape[0])
@@ -324,7 +399,7 @@ if _TRAIN_:
     #print(y_val.shape[0])
     #print(y_val.shape[1])
 
-    batch_size = 32
+    batch_size = 50
     
     my_training_batch_generator = My_Custom_Generator(X_train, y_train, batch_size)
     my_validation_batch_generator = My_Custom_Generator(X_val, y_val, batch_size)
@@ -337,8 +412,14 @@ if _TRAIN_:
     model.summary()
     #input()
     
-    model.compile(optimizer='rmsprop',
-              loss='sparse_categorical_crossentropy',
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=1e-1,
+        decay_steps=50000,
+        decay_rate=0.95)
+
+
+    model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr_schedule),
+              loss='categorical_crossentropy',
               metrics=['accuracy'])
     
     callbacks = [
