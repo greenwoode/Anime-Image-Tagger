@@ -17,12 +17,17 @@ Tools :
  - Github for communication and sharing
  - VS Code as IDE along with Jupyter
  - Numpy 
+ - Pandas
 
 Methods :
 
-- Convolutional Neural Netowrk
-- 
-- 
+- Keras:
+  - CNN
+  - Pooling
+  - Custom Batches
+- One-hot encoding
+- CV2 (image handling/processing)
+- Tensorflow
 
 ## 4. Results
 
