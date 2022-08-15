@@ -9,9 +9,36 @@ newMetaDir = ".\\validMeta"
 imagesDir = ".\\images"
 n = 337038
 
-_BLACKLIST_ = ['@', '!', '|', '\'', '.', '(', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '>', '<', '+', ':', 'breast', 'lowres', 'highres', 'boob', 'translate', 'request', '_no_', '_ni_', 'elemental_hero', 'bra', '_costume', '~', '`', 'harem', 'gangbang', 'ass', 'penis', 'panties', 'cum', 'sex', 'orgasm', 'squirting', 'micro', 'futanari', 'ray', 'drug', 'guro', 'hentai', 'revealing', 'thong', 'cure', 'legs_apart', 'testicles', '/']
+
+_WHITELIST_ = []
+
+whitelistSave = open(".\\WHITELIST.txt", 'r', encoding="utf-8")
+Lines = whitelistSave.readlines()
+whitelistSave.close()
+
+_BLACKLIST_ = []
+
+blacklistSave = open(".\\BLACKLIST.txt", 'r', encoding="utf-8")
+Lines = blacklistSave.readlines()
+whitelistSave.close()
+
+for line in Lines:
+    _BLACKLIST_.append(line.strip())
 
 _PREPROCESS_ = True
+
+from progress.bar import Bar
+
+class SlowBar(Bar):
+    suffix = '%(percent).1f%% - %(remaining_minutes)0.2f/%(minutes_passed)0.2fm'
+
+    @property
+    def remaining_minutes(self):
+        return self.eta / 60
+
+    @property
+    def minutes_passed(self):
+        return self.elapsed / 60
 
 if _PREPROCESS_:
 
@@ -59,7 +86,7 @@ if _PREPROCESS_:
         print("found ", foundTotal, " files in ", foundTotal + missedTotal, "lookups")
         n = foundTotal
 
-    _GENERATE_TAGS_ = True
+    _GENERATE_TAGS_ = False
     if _GENERATE_TAGS_:
 
         Lines = []
@@ -88,6 +115,10 @@ if _PREPROCESS_:
                     for black in _BLACKLIST_:
                         if black in tag['name']:
                             clean = False
+                    if len(tag['name'])<=3 or len(tag['name'])>=22:
+                        clean = False
+                    if tag['name'] in _WHITELIST_:
+                        clean = True
                     if tag['name'] not in Tags and clean:
                         Tags.append(tag['name'])
                         count += 1
@@ -104,85 +135,6 @@ if _PREPROCESS_:
                 # write each item on a new line
                 fp.write("%s\n" % item)
         print("Saved.")
-
-
-    _GENERATE_Y_ = False
-
-    if _GENERATE_Y_:
-
-        Tags = []
-        Lines = []
-        processedDataFiles=[]
-
-        tagSave = open(".\\allTagsShort.txt", 'r', encoding="utf-8")
-        Lines = tagSave.readlines()
-        tagSave.close()
-
-        for line in Lines:
-            Tags.append(line.strip())
-
-        print("Starting allocation...")
-        newTags = np.asarray(Tags)
-        df = np.empty((n, len(Tags)), dtype=np.int8)
-        print("Allocated array of shape", df.shape)
-        count = 0
-        for filePath in os.listdir(newMetaDir):
-                processedDataFiles.append(os.path.join(newMetaDir, filePath))
-
-
-        for JSON in processedDataFiles:
-            File = open(JSON, 'r', encoding="utf-8")
-
-            Lines = File.readlines()
-            lastRam = 0
-            for line in Lines:
-                
-                metadata = json.loads(line)
-                tags = metadata["tags"]
-                #row = []
-                heldTags = []
-                for hasTag in tags:
-                    heldTags.append(hasTag['name'])
-                tagIndex = 0
-                tagCount = 0
-                for tag in Tags:
-                    if tag in heldTags:
-                        #row.append(1)
-                        df[count, tagIndex] = 1
-                    else:
-                        #row.append(0)
-                        df[count, tagIndex] = 0
-                    tagIndex += 1
-                #np.vstack((df, np.asarray(row)))
-                count += 1
-                RAMUsage = psutil.virtual_memory().percent
-                if (RAMUsage*100)%5 == 0 and (RAMUsage - lastRam) >= 0.05:
-                    lastRam = RAMUsage
-                    print(RAMUsage, "% of RAM used for", count, "lines, current shape:", df.shape)
-                    #print(df[:,:])
-
-                if RAMUsage >= 75:
-                    print("Memory threshold reached, stopping dataframe generation...")
-                    break
-                #TODO add row to matrix
-
-            File.close()
-            print(JSON, "finished processing, added", count)
-        with open('Y.npy', 'wb') as f:
-            np.save(f, df)
-
-
-        ######################## BREAKS, NOT ENOUGH RAM ########################
-        #print("calculating independent tags...")
-        #_, inds = sympy.Matrix(df).rref()
-        #newTags = newTags[inds]
-        #print("found", newTags.size(), "indepenent tags, saving...")
-        #goodTagSave = open(".\\independentTags.txt", 'w', encoding="utf-8")
-        #goodTagSave.writelines(Tags.tolist())
-        #goodTagSave.close()
-        ########################################################################
-
-        print("Done.")
 
     _GENERATE_IMAGE_LIST_ = False
 
@@ -228,7 +180,6 @@ if _PREPROCESS_:
     _FIND_COMMON_ = True
 
     if _FIND_COMMON_:
-        from progress.bar import Bar
         import pandas as pd
 
         Tags = []
@@ -247,16 +198,20 @@ if _PREPROCESS_:
         tagCount = pd.DataFrame(np.zeros((1, len(Tags))), columns=newTags)
         print("Allocated array of shape", tagCount.shape)
         count = 1
-        for filePath in os.listdir(newMetaDir):
-                processedDataFiles.append(os.path.join(newMetaDir, filePath))
 
+        #for filePath in os.listdir(newMetaDir):
+        #        processedDataFiles.append(os.path.join(newMetaDir, filePath))
+
+        processedDataFiles.append(os.path.join(newMetaDir, '201700.json'))
+        processedDataFiles.append(os.path.join(newMetaDir, '201701.json'))
+        processedDataFiles.append(os.path.join(newMetaDir, '201702.json'))
 
         for JSON in processedDataFiles:
             File = open(JSON, 'r', encoding="utf-8")
             contents = File.read()
             File.close()
             message = str(count) + '/17 '
-            bar = Bar(message, max=len(Tags), suffix='%(percent).1f%% - %(eta)ds')
+            bar = SlowBar(message, max=len(Tags))
 
             for tag in Tags:
                 tagCount[tag][0] += contents.count(tag)
@@ -265,14 +220,93 @@ if _PREPROCESS_:
 
             print("finished", JSON)
             count += 1
-        tagCountSorted = tagCount.sort_values(by=0, axis=1)
+        tagCountSorted = tagCount.sort_values(by=0, axis=1, ascending=False)
         print("finished processing common tags, saving...")
         with open(".\\RankedTags.txt", 'w', encoding="utf-8") as fp:
             for tag in tagCountSorted.columns:
                 # write each item on a new line
                 fp.write("%s\n" % tag)
 
-        tagCountSorted[:, :10000].to_pickle('RankedTags_10k.pd')
+        tagCountSorted.to_pickle('RankedTags_10k.pd')
+
+
+        ######################## BREAKS, NOT ENOUGH RAM ########################
+        #print("calculating independent tags...")
+        #_, inds = sympy.Matrix(df).rref()
+        #newTags = newTags[inds]
+        #print("found", newTags.size(), "indepenent tags, saving...")
+        #goodTagSave = open(".\\independentTags.txt", 'w', encoding="utf-8")
+        #goodTagSave.writelines(Tags.tolist())
+        #goodTagSave.close()
+        ########################################################################
+
+        print("Done.")
+
+    _GENERATE_Y_ = False
+
+    if _GENERATE_Y_:
+
+
+        Tags = []
+        Lines = []
+        processedDataFiles=[]
+
+        tagSave = open(".\\allTagsShort.txt", 'r', encoding="utf-8")
+        Lines = tagSave.readlines()
+        tagSave.close()
+
+        for line in Lines:
+            Tags.append(line.strip())
+
+        print("Starting allocation...")
+        newTags = np.asarray(Tags)
+        df = np.empty((n, len(Tags)), dtype=np.int8)
+        print("Allocated array of shape", df.shape)
+        count = 0
+        for filePath in os.listdir(newMetaDir):
+                processedDataFiles.append(os.path.join(newMetaDir, filePath))
+
+
+        for JSON in processedDataFiles:
+            File = open(JSON, 'r', encoding="utf-8")
+
+
+
+
+            Lines = File.readlines()
+
+            bar = SlowBar(JSON, max=len(Lines), suffix='%(percent).1f%% - %(eta)ds')
+
+            for line in Lines:
+                
+                metadata = json.loads(line)
+                tags = metadata["tags"]
+                #row = []
+                heldTags = []
+                for hasTag in tags:
+                    heldTags.append(hasTag['name'])
+                tagIndex = 0
+                tagCount = 0
+                for tag in Tags:
+                    if tag in heldTags:
+                        #row.append(1)
+                        df[count, tagIndex] = 1
+                    else:
+                        #row.append(0)
+                        df[count, tagIndex] = 0
+                    tagIndex += 1
+                count += 1
+                #np.vstack((df, np.asarray(row)))
+                bar.next()
+            bar.finish()
+
+            
+
+
+            File.close()
+            print(JSON, "finished processing")
+        with open('Y.npy', 'wb') as f:
+            np.save(f, df)
 
 
         ######################## BREAKS, NOT ENOUGH RAM ########################
