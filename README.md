@@ -20,7 +20,7 @@ Tools :
  - Pandas
  - CV2 (image handling/processing)
  - Tensorflow
-  -Keras
+   - Keras
   
 Methods :
 
