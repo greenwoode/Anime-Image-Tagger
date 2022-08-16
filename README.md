@@ -7,7 +7,7 @@ There are certain websites that display images with various tags to help clairif
 
 ## 2. Selection of Data
 
-The data we selected was from the following hyperlink : https://www.kaggle.com/datasets/mylesoneill/tagged-anime-illustrations. We took the 331k image dataset and used 80% for training the model and 20% for testing the model and its accuracy. Along with the images we also had 130k plus tags that we had to limit. We were able to cut it down to about 90k by blacklisting any non-letter or numerical characters. To limit this further we sorted through the tags and condensed the ones with one word into one file and ones with multiple words into another. With a goal of trying to limit the tags down to around 2k by using the most common tags from the one word file. 
+The data we selected was from the following hyperlink : https://www.kaggle.com/datasets/mylesoneill/tagged-anime-illustrations. We took the 331k image dataset to limit training and testing time, we chose to use 40k images for the training and 10k images for the testing. If we could, we would have used 80% of the images for training and 20% for testing the models accuracy. Along with the images we also had 130k plus tags that we had to limit. We were able to cut it down to about 90k by blacklisting any non-letter or numerical characters. To limit this further we sorted through the tags and condensed the ones with one word into one file and ones with multiple words into another. With a goal of trying to limit the tags down to around 2k by using the most common tags from the one word file. 
 
 
 ## 3. Methods
