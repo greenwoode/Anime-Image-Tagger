@@ -38,10 +38,7 @@ After running the model several times with various images, we keep seeing the pr
 
 ## 5. Discussion
 
-There are two options for improving the net’s accuracy:
-- Expand the list of tags to cover more of the dataset
-- Limit the images used to those with tags that appear in our shorter list
-
+There are two possible options that we could have used to improve our neural networks accuracy. First we believe that if we expanded the list of tags to cover more of the dataset, we could have seen the right labels associated to each of the images that we used to test our model. Second, we think if we had limited our list of tags to be more aligned with the images in our test instead. Currently the list of tags being used can be applied to the entire image set, however with the limited dataset, not all the images are having the tags applying to them. 
 
 ## 6. Summary
 
