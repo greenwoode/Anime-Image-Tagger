@@ -16,6 +16,9 @@ whitelistSave = open(".\\WHITELIST.txt", 'r', encoding="utf-8")
 Lines = whitelistSave.readlines()
 whitelistSave.close()
 
+for line in Lines:
+    _WHITELIST_.append(line.strip())
+
 _BLACKLIST_ = []
 
 blacklistSave = open(".\\BLACKLIST.txt", 'r', encoding="utf-8")
@@ -24,6 +27,15 @@ whitelistSave.close()
 
 for line in Lines:
     _BLACKLIST_.append(line.strip())
+
+_BANLIST_ = []
+
+banlistSave = open(".\\BANLIST.txt", 'r', encoding="utf-8")
+Lines = banlistSave.readlines()
+banlistSave.close()
+
+for line in Lines:
+    _BANLIST_.append(line.strip())
 
 _PREPROCESS_ = True
 
@@ -119,6 +131,8 @@ if _PREPROCESS_:
                         clean = False
                     if tag['name'] in _WHITELIST_:
                         clean = True
+                    if tag['name'] in _BANLIST_:
+                        clean = False
                     if tag['name'] not in Tags and clean:
                         Tags.append(tag['name'])
                         count += 1
@@ -205,6 +219,9 @@ if _PREPROCESS_:
         processedDataFiles.append(os.path.join(newMetaDir, '201700.json'))
         processedDataFiles.append(os.path.join(newMetaDir, '201701.json'))
         processedDataFiles.append(os.path.join(newMetaDir, '201702.json'))
+        processedDataFiles.append(os.path.join(newMetaDir, '201703.json'))
+        processedDataFiles.append(os.path.join(newMetaDir, '201704.json'))
+
 
         for JSON in processedDataFiles:
             File = open(JSON, 'r', encoding="utf-8")
@@ -242,7 +259,45 @@ if _PREPROCESS_:
 
         print("Done.")
 
-    _GENERATE_Y_ = False
+    _CLEAN_COMMON_ = True
+
+    if _CLEAN_COMMON_:
+        import pandas as pd
+
+        Tags = []
+        Lines = []
+
+        tagSave = open(".\\RankedTags.txt", 'r', encoding="utf-8")
+        Lines = tagSave.readlines()
+        tagSave.close()
+
+        for line in Lines:
+            Tags.append(line.strip())
+
+        tagCountSorted = pd.read_pickle('RankedTags_10k.pd')
+
+        for tag in Tags:
+            if tag in _BANLIST_:
+                Tags.remove(tag)
+                tagCountSorted.drop(tag, axis=1, inplace=True)
+
+        with open(".\\RankedTags.txt", 'w', encoding="utf-8") as fp:
+            for tag in tagCountSorted.columns:
+                # write each item on a new line
+                fp.write("%s\n" % tag)
+
+        tagCountSorted.to_pickle('RankedTags.pd')
+
+        tagCountSorted.iloc[: , :1000].to_pickle('RankedTags_1000.pd')
+
+        with open(".\\RankedTags_1000.txt", 'w', encoding="utf-8") as fp:
+            for tag in tagCountSorted.iloc[: , :1000].columns:
+                # write each item on a new line
+                fp.write("%s\n" % tag)
+
+        print("Done.")
+
+    _GENERATE_Y_ = True
 
     if _GENERATE_Y_:
 
@@ -251,7 +306,7 @@ if _PREPROCESS_:
         Lines = []
         processedDataFiles=[]
 
-        tagSave = open(".\\allTagsShort.txt", 'r', encoding="utf-8")
+        tagSave = open(".\\RankedTags1000.txt", 'r', encoding="utf-8")
         Lines = tagSave.readlines()
         tagSave.close()
 
@@ -324,10 +379,12 @@ if _PREPROCESS_:
     _SPLIT_ = False
 
     if _SPLIT_:
+        number = 300000
         print("loading...")
-        images = np.load('Images.npy')
-        tags_hot = np.load('Y.npy')
-    
+        images = np.load('Images.npy')[:number]
+        tags_hot = np.load('Y.npy')[:number]
+        print(images.shape)
+        print(tags_hot.shape)
         ################ TOO MUCH MEMORY #####################
         #from sklearn.model_selection import train_test_split
         #
@@ -338,7 +395,7 @@ if _PREPROCESS_:
         ################################################
 
         def shuffle(X, Y, test_proportion):
-            ratio = int(X.shape[0]/test_proportion) #should be int
+            ratio = int(X.shape[0]//test_proportion) #should be int
             X_train = X[ratio:]
             X_val =  X[:ratio]
             y_train = Y[ratio:,:]
@@ -391,24 +448,23 @@ if _TRAIN_:
 
         inputs = keras.Input(shape=(512,512,3)) #(512, 512, 3)
 
-        x = layers.Conv2D(filters=32, kernel_size=3, activation="relu")(inputs) # (510, 510, 32)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (260, 260, 32)
-        x = layers.Conv2D(filters=64, kernel_size=3, activation="relu")(x) # (258, 258, 64)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (129, 129, 64)
-        x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x) # (127, 127, 128)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (63, 63, 128)
-        x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x) # (61, 61, 128)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (30, 30, 128)
-        x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x) # (28, 28, 128)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (14, 14, 128)
+        x = layers.AveragePooling2D(pool_size=4)(inputs) # (128, 128, 3)
+
+        x = layers.Conv2D(filters=32, kernel_size=3, activation="relu")(x) # (120, 120, 32)
+        x = layers.MaxPooling2D(pool_size=2)(x) # (60, 60, 32)
+        x = layers.Conv2D(filters=64, kernel_size=3, activation="relu")(x) # (58, 58, 64)
+        x = layers.MaxPooling2D(pool_size=2)(x) # (29, 29, 64)
+        x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x) # (27, 27, 128)
+        x = layers.MaxPooling2D(pool_size=2)(x) # (13, 13, 128)
+        x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x) # (11, 11, 128)
+        x = layers.MaxPooling2D(pool_size=2)(x) # (5, 5, 128)
 
         x = layers.Flatten()(x)
         x = layers.Dropout(0.15)(x)
-        x = layers.Dense(512, activation='relu')(x)
-        x = layers.Dense(512, activation='relu')(x)
-        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(256, activation='relu')(x)
+        x = layers.Dense(256, activation='relu')(x)
 
-        outputs = layers.Dense(outSize, activation="softmax")(x)
+        outputs = layers.Dense(outSize, activation='sigmoid')(x)
 
         return keras.Model(inputs=inputs, outputs=outputs)
 
@@ -433,7 +489,7 @@ if _TRAIN_:
     #print(y_val.shape[0])
     #print(y_val.shape[1])
 
-    batch_size = 50
+    batch_size = 500
     
     my_training_batch_generator = My_Custom_Generator(X_train, y_train, batch_size)
     my_validation_batch_generator = My_Custom_Generator(X_val, y_val, batch_size)
@@ -447,13 +503,13 @@ if _TRAIN_:
     #input()
     
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=1e-1,
-        decay_steps=50000,
-        decay_rate=0.95)
+        initial_learning_rate=1e-2,
+        decay_steps=5000,
+        decay_rate=0.90)
 
-
-    model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr_schedule),
-              loss='categorical_crossentropy',
+    #keras.optimizers.RMSprop(learning_rate=lr_schedule),
+    model.compile(optimizer='adam',
+              loss='binary_crossentropy',
               metrics=['accuracy'])
     
     callbacks = [
@@ -466,15 +522,16 @@ if _TRAIN_:
     
     print("training start")
     
-    model.fit_generator(generator=my_training_batch_generator,
+    history = model.fit_generator(generator=my_training_batch_generator,
                    steps_per_epoch = int(X_train.shape[0] // batch_size),
-                   epochs = 50,
+                   epochs = 5,
                    verbose = 1,
+                   callbacks=callbacks,
                    validation_data = my_validation_batch_generator,
                    validation_steps = int(X_val.shape[0] // batch_size))
     
     print("saving model")
     
-    keras.save('model.kmodel')
+    model.save('model.kmodel')
     
     print('Done.')
