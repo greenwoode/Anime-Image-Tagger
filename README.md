@@ -33,13 +33,19 @@ Methods :
 
 ## 4. Results
 
+After running the model several times with various images, we keep seeing the prediction accuracy staying around the 56% mark. The model is able to predict various labels associated with a given image, however none of the actual labels are in the specific image's predicted set. The most likely cause for this is that the prediction for the tags associated with the image are falling too far below the frequency mark for it to be considered in the prediction. 
+
 
 ## 5. Discussion
+
+There are two options for improving the net’s accuracy:
+- Expand the list of tags to cover more of the dataset
+- Limit the images used to those with tags that appear in our shorter list
 
 
 ## 6. Summary
 
-The program created uses convolutional neural networks to determine the most accurate tags for a given photo. 
+The program created uses convolutional neural networks to determine the most accurate tags for a given photo. It is able to make predictions as to what tags should be associated with a given image, however, it isn't always as accurate as we were hoping for. 
 
 ## 7. References 
 
