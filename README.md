@@ -18,7 +18,10 @@ Tools :
  - VS Code as IDE along with Jupyter
  - Numpy 
  - Pandas
-
+ - CV2 (image handling/processing)
+ - Tensorflow
+   - Keras
+  
 Methods :
 
 - Keras:
@@ -26,8 +29,7 @@ Methods :
   - Pooling
   - Custom Batches
 - One-hot encoding
-- CV2 (image handling/processing)
-- Tensorflow
+- Multi-Label categorization
 
 ## 4. Results
 
