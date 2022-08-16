@@ -191,7 +191,7 @@ if _PREPROCESS_:
 
         print("Saved.")
 
-    _FIND_COMMON_ = True
+    _FIND_COMMON_ = False
 
     if _FIND_COMMON_:
         import pandas as pd
@@ -259,7 +259,7 @@ if _PREPROCESS_:
 
         print("Done.")
 
-    _CLEAN_COMMON_ = True
+    _CLEAN_COMMON_ = False
 
     if _CLEAN_COMMON_:
         import pandas as pd
@@ -288,16 +288,16 @@ if _PREPROCESS_:
 
         tagCountSorted.to_pickle('RankedTags.pd')
 
-        tagCountSorted.iloc[: , :1000].to_pickle('RankedTags_1000.pd')
+        tagCountSorted.iloc[: , :5000].to_pickle('RankedTags_5000.pd')
 
-        with open(".\\RankedTags_1000.txt", 'w', encoding="utf-8") as fp:
-            for tag in tagCountSorted.iloc[: , :1000].columns:
+        with open(".\\RankedTags_5000.txt", 'w', encoding="utf-8") as fp:
+            for tag in tagCountSorted.iloc[: , :5000].columns:
                 # write each item on a new line
                 fp.write("%s\n" % tag)
 
-        print("Done.")
+        print("Done [Clean Common].")
 
-    _GENERATE_Y_ = True
+    _GENERATE_Y_ = False
 
     if _GENERATE_Y_:
 
@@ -306,7 +306,7 @@ if _PREPROCESS_:
         Lines = []
         processedDataFiles=[]
 
-        tagSave = open(".\\RankedTags1000.txt", 'r', encoding="utf-8")
+        tagSave = open(".\\RankedTags_5000.txt", 'r', encoding="utf-8")
         Lines = tagSave.readlines()
         tagSave.close()
 
@@ -330,7 +330,7 @@ if _PREPROCESS_:
 
             Lines = File.readlines()
 
-            bar = SlowBar(JSON, max=len(Lines), suffix='%(percent).1f%% - %(eta)ds')
+            bar = SlowBar(JSON, max=len(Lines))
 
             for line in Lines:
                 
@@ -374,7 +374,7 @@ if _PREPROCESS_:
         #goodTagSave.close()
         ########################################################################
 
-        print("Done.")
+        print("Done [Clean Y].")
 
     _SPLIT_ = False
 
@@ -409,7 +409,7 @@ if _PREPROCESS_:
         np.save('./split/X_val.npy', X_val)
         np.save('./split/y_train.npy', y_train)
         np.save('./split/y_val.npy', y_val)
-        print('train/val split complete')
+        print('Done [train/val split].')
 
 _TRAIN_ = False
 
@@ -452,12 +452,17 @@ if _TRAIN_:
 
         x = layers.Conv2D(filters=32, kernel_size=3, activation="relu")(x) # (120, 120, 32)
         x = layers.MaxPooling2D(pool_size=2)(x) # (60, 60, 32)
+
         x = layers.Conv2D(filters=64, kernel_size=3, activation="relu")(x) # (58, 58, 64)
         x = layers.MaxPooling2D(pool_size=2)(x) # (29, 29, 64)
+
         x = layers.Conv2D(filters=128, kernel_size=3, activation="relu")(x) # (27, 27, 128)
         x = layers.MaxPooling2D(pool_size=2)(x) # (13, 13, 128)
-        x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x) # (11, 11, 128)
-        x = layers.MaxPooling2D(pool_size=2)(x) # (5, 5, 128)
+
+        x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x) # (11, 11, 256)
+        x = layers.MaxPooling2D(pool_size=2)(x) # (5, 5, 256)
+
+        x = layers.Conv2D(filters=256, kernel_size=3, activation="relu")(x) # (3, 3, 256)
 
         x = layers.Flatten()(x)
         x = layers.Dropout(0.15)(x)
@@ -524,7 +529,7 @@ if _TRAIN_:
     
     history = model.fit_generator(generator=my_training_batch_generator,
                    steps_per_epoch = int(X_train.shape[0] // batch_size),
-                   epochs = 5,
+                   epochs = 3,
                    verbose = 1,
                    callbacks=callbacks,
                    validation_data = my_validation_batch_generator,
@@ -532,6 +537,68 @@ if _TRAIN_:
     
     print("saving model")
     
-    model.save('model.kmodel')
+    model.save('model2.kmodel')
     
     print('Done.')
+
+_PREDICT_ = True
+if _PREDICT_:
+    import keras
+    import tensorflow as tf
+    from tensorflow import keras
+    import cv2
+    import pandas as pd
+
+    model = keras.models.load_model('model.kmodel')
+
+    img = '542028'
+    predIMG = np.asarray([cv2.imread(str(img + '.jpg'))])
+    print(predIMG.shape)
+    prediction = model.predict(predIMG)
+
+    Tags = []
+    tagSave = open(".\\RankedTags_1000.txt", 'r', encoding="utf-8")
+    Lines = tagSave.readlines()
+    tagSave.close()
+
+    for line in Lines:
+        Tags.append(line.strip())
+
+    df = pd.DataFrame(prediction, columns=Tags[:500])
+    print("\n\nPrediction:")
+    df.sort_values(by=0, axis=1, ascending=False, inplace=True)
+    print(df.iloc[: , :10])
+    #print(df[df>=0.75])
+
+    print("\nActual:")
+    processedDataFiles = []
+    for filePath in os.listdir(newMetaDir):
+        processedDataFiles.append(os.path.join(newMetaDir, filePath))
+
+    taggedWith = []
+    for JSON in processedDataFiles:
+        File = open(JSON, 'r', encoding="utf-8")
+        Lines = File.readlines()
+        for line in Lines:
+                
+            metadata = json.loads(line)
+            if metadata['id'] == img:
+
+                tags = metadata["tags"]
+                for hasTag in tags:
+                    clean = True
+                    for black in _BLACKLIST_:
+                        if black in hasTag['name']:
+                            clean = False
+                    if len(hasTag['name'])<=3 or len(hasTag['name'])>=22:
+                        clean = False
+                    if hasTag['name'] in _WHITELIST_:
+                        clean = True
+                    if hasTag['name'] in _BANLIST_:
+                        clean = False
+                    if clean:
+                        taggedWith.append(hasTag['name'])
+                print(taggedWith)
+                break
+
+        File.close()
